@@ -2,6 +2,7 @@
 <html>
 	<head>
 		<title>iFakeLocation</title>
+		<meta charset="UTF-8">
 		<script src="babel.polyfill.min.js"></script>
 		<script src="fetch.min.js"></script>
 		<script src="jquery-3.3.1.min.js"></script>
@@ -17,7 +18,7 @@
 	<body>
 		<div class="p-3 px-md-4 mb-3 bg-white border-bottom box-shadow">
 			<div class="d-flex flex-column align-items-center flex-md-row container">
-				<h4 class="my-0 mr-md-auto font-weight-normal">iFakeLocation</h4>
+				<h4 class="my-0 mr-md-auto font-weight-normal">iFakeLocation - Fuel Price</h4>
 				<a id="about-btn" class="btn btn-outline-primary pl-4 pr-4" href="#" title="iFakeLocation">About</a>
 				<a id="exit-btn" class="btn btn-outline-primary pl-4 pr-4 ml-4" href="#" title="iFakeLocation" onclick="window.open('', '_self', ''); window.close();">Exit</a>
 			</div>
@@ -41,6 +42,25 @@
 			<div id="map" style="width: 100%; height: 500px; max-height: 70vh"></div>
 			
 			<p><small>Click and drag to move the map. Use the mouse wheel or +/- buttons to zoom. Double-click anywhere (or drag the existing marker) to manually select a location.</small></p>
+			
+			<form>
+				<div class="mb-3">
+					<div class="row align-items-center">
+						<div class="col-md-auto">
+							<label class="mb-0" for="device">Lowest Fuel Price:</label>
+						</div>
+						<div class="col">
+							<input type="text" class="form-control" id="lowestFuelPriceQuery" readonly>
+						</div>
+						<div class="col-md-auto">
+							<button type="button" class="btn btn-primary pl-4 pr-4" id="lowestFuelPriceRefresh">Refresh</button>
+						</div>
+						<div class="col-md-auto">
+							<button type="button" class="btn btn-primary pl-4 pr-4" id="lowestFuelPriceBtn">Go Here</button>
+						</div>
+					</div>
+				</div>
+			</form>
 			
 			<form>
 				<div class="mb-3">
@@ -149,6 +169,53 @@
 			$('#exit-btn').click(function() {
 				fetch('/exit').then(function(e) {
 					close();
+				});
+			});
+			
+			// Populate best fuel price upon clicking refresh
+			$('#lowestFuelPriceRefresh').click(function() {
+				
+				//disable button
+				var b = $(this).attr('disabled', true);
+				
+				//endpoint for lowest fuel price
+				var api = "https://projectzerothree.info/api.php?format=json";
+				
+				//get JSON fuel prices
+				fetch(api).then(function(e) {
+					
+					//return json fuel prices
+					return e.json();
+				}).then(function(r) {
+				
+					//re-enable refresh button
+					b.removeAttr('disabled');
+					
+					//try and get the 'All' region
+					for (var i=0; i < r.regions.length; i++) {
+					
+						//get the current region
+						var region = r.regions[i];
+					
+						//check region
+						if (region.region.toLowerCase() == 'all') {
+							
+							//get the best price (first item)
+							var bestPrice = region.prices[0];
+							
+							//convert price to dollars
+							var formattedPrice = (bestPrice.price / 100).toFixed(2);
+							
+							//text to set the field toFixed
+							var priceText = bestPrice.suburb + ", " + bestPrice.state + " - $" + formattedPrice + "/L";
+							
+							//set the fuel price
+							$('#lowestFuelPriceQuery').val(priceText);
+							
+							//exit loop
+							break;
+						}
+					}
 				});
 			});
 			
@@ -317,6 +384,35 @@
 					marker.setLatLng(e.latlng);
 				if (devices && devices.length)
 					$('#set-location').removeAttr('disabled');
+			});
+			
+			// Handle go here button
+			$('#lowestFuelPriceBtn').click(function() {
+			
+				//validate the price query
+				if (!$('#lowestFuelPriceQuery'))
+					return;
+					
+				//disable button
+				$('#lowestFuelPriceBtn').attr('disabled', true);
+				
+				//parse town and state out of price
+				var priceTextRaw = $('#lowestFuelPriceQuery').val();
+				var priceLocation = priceTextRaw.split(' - ')[0];
+				
+				//perform search
+				provider.search({query: priceLocation}).then(function(r) {
+					$('#lowestFuelPriceBtn').removeAttr('disabled');
+					if (r.length) {
+						if (!marker)
+							marker = new L.marker([r[0].y, r[0].x], {draggable: true}).addTo(map);
+						else
+							marker.setLatLng([r[0].y, r[0].x]);
+						map.setView([r[0].y, r[0].x], 13);
+						if (devices && devices.length)
+							$('#set-location').removeAttr('disabled');
+					}
+				});
 			});
 			
 			// Handle search button
