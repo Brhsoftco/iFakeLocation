@@ -47,10 +47,20 @@
 				<div class="mb-3">
 					<div class="row align-items-center">
 						<div class="col-md-auto">
-							<label class="mb-0" for="device">Lowest Fuel Price:</label>
+							<label class="mb-0" for="lowestFuelPriceQuery">Lowest Fuel Price:</label>
 						</div>
 						<div class="col">
 							<input type="text" class="form-control" id="lowestFuelPriceQuery" readonly>
+						</div>
+						<div class="col-md-auto">
+							<select class="form-control" id="fuelType" readonly>
+								<option selected>U91</option>
+								<option>U95</option>
+								<option>U98</option>
+								<option>E10</option>
+								<option>LPG</option>
+								<option>Diesel</option>
+							</select>
 						</div>
 						<div class="col-md-auto">
 							<button type="button" class="btn btn-primary pl-4 pr-4" id="lowestFuelPriceRefresh">Refresh</button>
@@ -180,19 +190,22 @@
 				
 				//endpoint for lowest fuel price
 				var api = "https://projectzerothree.info/api.php?format=json";
-				
+
 				//get JSON fuel prices
 				fetch(api).then(function(e) {
 					
 					//return json fuel prices
 					return e.json();
 				}).then(function(r) {
-				
+
+                    //correct fuel type
+                    var type = $("#fuelType").val();
+
 					//re-enable refresh button
 					b.removeAttr('disabled');
 					
 					//try and get the 'All' region
-					for (var i=0; i < r.regions.length; i++) {
+					for (var i = 0; i < r.regions.length; i++) {
 					
 						//get the current region
 						var region = r.regions[i];
@@ -200,20 +213,28 @@
 						//check region
 						if (region.region.toLowerCase() == 'all') {
 							
-							//get the best price (first item)
-							var bestPrice = region.prices[0];
-							
-							//convert price to dollars
-							var formattedPrice = (bestPrice.price / 100).toFixed(2);
-							
-							//text to set the field toFixed
-							var priceText = bestPrice.suburb + ", " + bestPrice.state + " - $" + formattedPrice + "/L";
-							
-							//set the fuel price
-							$('#lowestFuelPriceQuery').val(priceText);
-							
-							//exit loop
-							break;
+							//get the best price
+							for (var p = 0; p < region.prices.length; p++) {
+
+								//current price
+								var price = region.prices[p];
+
+								//check fuel type
+								if (price.type == type) {
+
+									//convert price to dollars
+									var formattedPrice = (price.price / 100).toFixed(2);
+
+									//text to set the field toFixed
+									var priceText = price.suburb + ", " + price.state + " - $" + formattedPrice + "/L (" + type + ")";
+
+									//set the fuel price
+									$('#lowestFuelPriceQuery').val(priceText);
+
+									//exit loop
+									break;
+								}
+							}
 						}
 					}
 				});
